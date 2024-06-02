@@ -80,7 +80,7 @@ pub trait ChannelRegs {
 
 impl<CH: ChannelIndex> ChannelRegs for Channel<CH> {
     unsafe fn ptr() -> *const rp2040_pac::dma::CH {
-        &(*rp2040_pac::DMA::ptr()).ch[CH::id() as usize] as *const _
+        (*rp2040_pac::DMA::ptr()).ch(CH::id() as usize)
     }
 
     fn regs(&self) -> &rp2040_pac::dma::CH {

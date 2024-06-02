@@ -107,8 +107,7 @@ const fn delays<const B: usize>() -> [u32; B] {
 ///       |XX000000|...|XX000000|XX000000|XX000000|XX000000|XX000000|...|XX000000|
 ///       |--------|...|--------|--------|--------|--------|--------|...|--------|
 /// ```
-pub struct DisplayMemory<const W: usize, const H: usize, const B: usize, const SZ: usize>
-{
+pub struct DisplayMemory<const W: usize, const H: usize, const B: usize, const SZ: usize> {
     fbptr: [u32; 1],
     fb0: [u8; SZ],
     fb1: [u8; SZ],
@@ -116,8 +115,7 @@ pub struct DisplayMemory<const W: usize, const H: usize, const B: usize, const S
     delaysptr: [u32; 1],
 }
 
-impl<const W: usize, const H: usize, const B: usize, const SZ: usize> DisplayMemory<W, H, B, SZ>
-{
+impl<const W: usize, const H: usize, const B: usize, const SZ: usize> DisplayMemory<W, H, B, SZ> {
     pub const fn new() -> Self {
         let fb0 = [0; SZ];
         let fb1 = [0; SZ];
@@ -164,7 +162,8 @@ where
     lut: &'a dyn lut::Lut<B, C>,
 }
 
-impl<'a, CH1, const W: usize, const H: usize, const B: usize, const SZ: usize, C> Display<'a, CH1, W, H, B, SZ, C>
+impl<'a, CH1, const W: usize, const H: usize, const B: usize, const SZ: usize, C>
+    Display<'a, CH1, W, H, B, SZ, C>
 where
     CH1: ChannelIndex,
     C: RgbColor,
@@ -228,11 +227,10 @@ where
                 ".wrap",
             );
             let installed = pio_block.install(&program_data.program).unwrap();
-            let (mut sm, _, mut tx) = PIOBuilder::from_program(installed)
+            let (mut sm, _, mut tx) = PIOBuilder::from_installed_program(installed)
                 .out_pins(pins.r1.id().num, 6)
                 .side_set_pin_base(pins.clk.id().num)
                 .clock_divisor_fixed_point(2, 0)
-                .out_shift_direction(ShiftDirection::Right)
                 .autopull(true)
                 .buffers(Buffers::OnlyTx)
                 .build(data_sm);
@@ -273,7 +271,8 @@ where
                 ".wrap",
             );
             let installed = pio_block.install(&program_data.program).unwrap();
-            let (mut sm, _, mut tx) = PIOBuilder::from_program(installed)
+            let (mut sm, _, mut tx) = PIOBuilder::from_installed_program(installed)
+                .out_shift_direction(ShiftDirection::Left)
                 .out_pins(pins.addra.id().num, 4)
                 .side_set_pin_base(pins.lat.id().num)
                 .clock_divisor_fixed_point(1, 1)
@@ -306,7 +305,8 @@ where
                 ".wrap",
             );
             let installed = pio_block.install(&program_data.program).unwrap();
-            let (mut sm, _, tx) = PIOBuilder::from_program(installed)
+            let (mut sm, _, tx) = PIOBuilder::from_installed_program(installed)
+                .out_shift_direction(ShiftDirection::Left)
                 .side_set_pin_base(pins.oe.id().num)
                 .clock_divisor_fixed_point(1, 1)
                 .autopull(true)
@@ -324,7 +324,7 @@ where
         buffer.delaysptr[0] = buffer.delays.as_ptr() as u32;
 
         // Framebuffer channel
-        fb_ch.regs().ch_al1_ctrl.write(|w| unsafe {
+        fb_ch.regs().ch_al1_ctrl().write(|w| unsafe {
             w
                 // Increase the read addr as we progress through the buffer
                 .incr_read()
@@ -350,19 +350,19 @@ where
         });
         fb_ch
             .regs()
-            .ch_read_addr
+            .ch_read_addr()
             .write(|w| unsafe { w.bits(buffer.fbptr[0]) });
         fb_ch
             .regs()
-            .ch_trans_count
+            .ch_trans_count()
             .write(|w| unsafe { w.bits((fb_bytes(W, H, B) / 4) as u32) });
         fb_ch
             .regs()
-            .ch_write_addr
+            .ch_write_addr()
             .write(|w| unsafe { w.bits(data_sm_tx.fifo_address() as u32) });
 
         // Framebuffer loop channel
-        fb_loop_ch.regs().ch_al1_ctrl.write(|w| unsafe {
+        fb_loop_ch.regs().ch_al1_ctrl().write(|w| unsafe {
             w
                 // Do not increase the read addr. We always want to read a single value
                 .incr_read()
@@ -388,19 +388,19 @@ where
         });
         fb_loop_ch
             .regs()
-            .ch_read_addr
+            .ch_read_addr()
             .write(|w| unsafe { w.bits(buffer.fbptr.as_ptr() as u32) });
         fb_loop_ch
             .regs()
-            .ch_trans_count
+            .ch_trans_count()
             .write(|w| unsafe { w.bits(1) });
         fb_loop_ch
             .regs()
-            .ch_al2_write_addr_trig
-            .write(|w| unsafe { w.bits(fb_ch.regs().ch_read_addr.as_ptr() as u32) });
+            .ch_al2_write_addr_trig()
+            .write(|w| unsafe { w.bits(fb_ch.regs().ch_read_addr().as_ptr() as u32) });
 
         // Output enable channel
-        oe_ch.regs().ch_al1_ctrl.write(|w| unsafe {
+        oe_ch.regs().ch_al1_ctrl().write(|w| unsafe {
             w
                 // Increase the read addr as we progress through the buffer
                 .incr_read()
@@ -426,19 +426,19 @@ where
         });
         oe_ch
             .regs()
-            .ch_read_addr
+            .ch_read_addr()
             .write(|w| unsafe { w.bits(buffer.delays.as_ptr() as u32) });
         oe_ch
             .regs()
-            .ch_trans_count
+            .ch_trans_count()
             .write(|w| unsafe { w.bits(buffer.delays.len().try_into().unwrap()) });
         oe_ch
             .regs()
-            .ch_write_addr
+            .ch_write_addr()
             .write(|w| unsafe { w.bits(oe_sm_tx.fifo_address() as u32) });
 
         // Output enable loop channel
-        oe_loop_ch.regs().ch_al1_ctrl.write(|w| unsafe {
+        oe_loop_ch.regs().ch_al1_ctrl().write(|w| unsafe {
             w
                 // Do not increase the read addr. We always want to read a single value
                 .incr_read()
@@ -464,16 +464,16 @@ where
         });
         oe_loop_ch
             .regs()
-            .ch_read_addr
+            .ch_read_addr()
             .write(|w| unsafe { w.bits(buffer.delaysptr.as_ptr() as u32) });
         oe_loop_ch
             .regs()
-            .ch_trans_count
+            .ch_trans_count()
             .write(|w| unsafe { w.bits(buffer.delaysptr.len().try_into().unwrap()) });
         oe_loop_ch
             .regs()
-            .ch_al2_write_addr_trig
-            .write(|w| unsafe { w.bits(oe_ch.regs().ch_read_addr.as_ptr() as u32) });
+            .ch_al2_write_addr_trig()
+            .write(|w| unsafe { w.bits(oe_ch.regs().ch_read_addr().as_ptr() as u32) });
 
         data_sm.start();
         row_sm.start();
@@ -491,7 +491,7 @@ where
     fn fb_loop_busy(&self) -> bool {
         self.fb_loop_ch
             .regs()
-            .ch_ctrl_trig
+            .ch_ctrl_trig()
             .read()
             .busy()
             .bit_is_set()

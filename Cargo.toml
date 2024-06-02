@@ -10,5 +10,5 @@ pio-proc = "0.2"
 pio = "0.2"
 libm = "0.2"
 
-rp2040-hal = "0.9"
+rp2040-hal = "0.10.1"
 embedded-graphics = "0.8"
