@@ -13,8 +13,7 @@ impl LutState for Uninit {}
 impl LutState for Init {}
 
 /// `POWB` must be `1 << B`
-pub struct GammaLut<const POWB: usize, C: RgbColor, S>
-{
+pub struct GammaLut<const POWB: usize, C: RgbColor, S> {
     r: [u16; POWB],
     g: [u16; POWB],
     b: [u16; POWB],
@@ -22,8 +21,7 @@ pub struct GammaLut<const POWB: usize, C: RgbColor, S>
     _state: PhantomData<S>,
 }
 
-impl<const POWB: usize, C: RgbColor> GammaLut<POWB, C, Uninit>
-{
+impl<const POWB: usize, C: RgbColor> GammaLut<POWB, C, Uninit> {
     pub const fn new() -> Self {
         Self {
             r: [0; POWB],
@@ -65,8 +63,10 @@ impl<const POWB: usize, C: RgbColor> GammaLut<POWB, C, Uninit>
     }
 }
 
-impl<const POWB: usize, C: RgbColor> Lut<POWB, C> for GammaLut<POWB, C, Init>
-{
+// FIXME: can't figure out how to do the POWB = 1 << B math for this.
+// So I just hardcoded it for a single value.
+
+impl<C: RgbColor> Lut<12, C> for GammaLut<4096, C, Init> {
     fn lookup(&self, color: C) -> (u16, u16, u16) {
         let r = self.r[color.r() as usize];
         let g = self.g[color.g() as usize];
@@ -77,8 +77,7 @@ impl<const POWB: usize, C: RgbColor> Lut<POWB, C> for GammaLut<POWB, C, Init>
 
 pub struct Identity;
 
-impl<const POWB: usize, C: RgbColor> Lut<POWB, C> for Identity
-{
+impl<const POWB: usize, C: RgbColor> Lut<POWB, C> for Identity {
     fn lookup(&self, color: C) -> (u16, u16, u16) {
         (color.r() as u16, color.g() as u16, color.b() as u16)
     }
