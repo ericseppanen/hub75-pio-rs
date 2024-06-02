@@ -27,15 +27,14 @@
 
 // TODO: Implement the drop trait to release DMA & PIO?
 // TODO: organize these
-use crate::dma::{Channel, ChannelIndex, ChannelRegs};
 use core::convert::TryInto;
 use embedded_graphics::prelude::*;
+use rp2040_hal::dma::{Channel, ChannelIndex, SingleChannel};
 use rp2040_hal::gpio::{DynPinId, Function, Pin, PullNone};
 use rp2040_hal::pio::{
     Buffers, PIOBuilder, PIOExt, PinDir, ShiftDirection, StateMachineIndex, UninitStateMachine, PIO,
 };
 
-pub mod dma;
 pub mod lut;
 
 /// Framebuffer size in bytes
@@ -324,7 +323,7 @@ where
         buffer.delaysptr[0] = buffer.delays.as_ptr() as u32;
 
         // Framebuffer channel
-        fb_ch.regs().ch_al1_ctrl().write(|w| unsafe {
+        fb_ch.ch().ch_al1_ctrl().write(|w| unsafe {
             w
                 // Increase the read addr as we progress through the buffer
                 .incr_read()
@@ -349,20 +348,20 @@ where
                 .bit(true)
         });
         fb_ch
-            .regs()
+            .ch()
             .ch_read_addr()
             .write(|w| unsafe { w.bits(buffer.fbptr[0]) });
         fb_ch
-            .regs()
+            .ch()
             .ch_trans_count()
             .write(|w| unsafe { w.bits((fb_bytes(W, H, B) / 4) as u32) });
         fb_ch
-            .regs()
+            .ch()
             .ch_write_addr()
             .write(|w| unsafe { w.bits(data_sm_tx.fifo_address() as u32) });
 
         // Framebuffer loop channel
-        fb_loop_ch.regs().ch_al1_ctrl().write(|w| unsafe {
+        fb_loop_ch.ch().ch_al1_ctrl().write(|w| unsafe {
             w
                 // Do not increase the read addr. We always want to read a single value
                 .incr_read()
@@ -387,20 +386,20 @@ where
                 .bit(true)
         });
         fb_loop_ch
-            .regs()
+            .ch()
             .ch_read_addr()
             .write(|w| unsafe { w.bits(buffer.fbptr.as_ptr() as u32) });
         fb_loop_ch
-            .regs()
+            .ch()
             .ch_trans_count()
             .write(|w| unsafe { w.bits(1) });
         fb_loop_ch
-            .regs()
+            .ch()
             .ch_al2_write_addr_trig()
-            .write(|w| unsafe { w.bits(fb_ch.regs().ch_read_addr().as_ptr() as u32) });
+            .write(|w| unsafe { w.bits(fb_ch.ch().ch_read_addr().as_ptr() as u32) });
 
         // Output enable channel
-        oe_ch.regs().ch_al1_ctrl().write(|w| unsafe {
+        oe_ch.ch().ch_al1_ctrl().write(|w| unsafe {
             w
                 // Increase the read addr as we progress through the buffer
                 .incr_read()
@@ -425,20 +424,20 @@ where
                 .bit(true)
         });
         oe_ch
-            .regs()
+            .ch()
             .ch_read_addr()
             .write(|w| unsafe { w.bits(buffer.delays.as_ptr() as u32) });
         oe_ch
-            .regs()
+            .ch()
             .ch_trans_count()
             .write(|w| unsafe { w.bits(buffer.delays.len().try_into().unwrap()) });
         oe_ch
-            .regs()
+            .ch()
             .ch_write_addr()
             .write(|w| unsafe { w.bits(oe_sm_tx.fifo_address() as u32) });
 
         // Output enable loop channel
-        oe_loop_ch.regs().ch_al1_ctrl().write(|w| unsafe {
+        oe_loop_ch.ch().ch_al1_ctrl().write(|w| unsafe {
             w
                 // Do not increase the read addr. We always want to read a single value
                 .incr_read()
@@ -463,17 +462,17 @@ where
                 .bit(true)
         });
         oe_loop_ch
-            .regs()
+            .ch()
             .ch_read_addr()
             .write(|w| unsafe { w.bits(buffer.delaysptr.as_ptr() as u32) });
         oe_loop_ch
-            .regs()
+            .ch()
             .ch_trans_count()
             .write(|w| unsafe { w.bits(buffer.delaysptr.len().try_into().unwrap()) });
         oe_loop_ch
-            .regs()
+            .ch()
             .ch_al2_write_addr_trig()
-            .write(|w| unsafe { w.bits(oe_ch.regs().ch_read_addr().as_ptr() as u32) });
+            .write(|w| unsafe { w.bits(oe_ch.ch().ch_read_addr().as_ptr() as u32) });
 
         data_sm.start();
         row_sm.start();
@@ -490,7 +489,7 @@ where
 
     fn fb_loop_busy(&self) -> bool {
         self.fb_loop_ch
-            .regs()
+            .ch()
             .ch_ctrl_trig()
             .read()
             .busy()
