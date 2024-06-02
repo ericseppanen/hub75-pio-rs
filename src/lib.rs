@@ -592,8 +592,14 @@ where
         I: IntoIterator<Item = Pixel<Self::Color>>,
     {
         for Pixel(coord, color) in pixels.into_iter() {
-            if coord.x < W.try_into().unwrap() && coord.y < H.try_into().unwrap() {
-                self.set_pixel(coord.x as usize, coord.y as usize, color);
+            let Ok(x) = usize::try_from(coord.x) else {
+                continue;
+            };
+            let Ok(y) = usize::try_from(coord.y) else {
+                continue;
+            };
+            if x < W && y < H {
+                self.set_pixel(x, y, color);
             }
         }
 
