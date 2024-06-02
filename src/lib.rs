@@ -131,6 +131,25 @@ impl<const W: usize, const H: usize, const B: usize, const SZ: usize> DisplayMem
     }
 }
 
+/// A trait implemented by all Display instances.
+///
+/// This allows calls without needing to name the full `Display` type.
+pub trait DisplayExt {
+    fn commit(&mut self);
+}
+
+impl<'a, CH1, const W: usize, const H: usize, const B: usize, const SZ: usize, C> DisplayExt
+    for Display<'a, CH1, W, H, B, SZ, C>
+where
+    CH1: ChannelIndex,
+    C: RgbColor,
+{
+    /// Flip the display buffers.
+    fn commit(&mut self) {
+        self.commit()
+    }
+}
+
 /// Mapping between GPIO pins and HUB75 pins
 pub struct DisplayPins<F: Function> {
     pub r1: Pin<DynPinId, F, PullNone>,
