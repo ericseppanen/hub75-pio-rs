@@ -24,8 +24,6 @@
 //! - ADDRA, ADDRB, ADDRC, ADDRD
 
 #![no_std]
-#![feature(generic_const_exprs)]
-#![feature(const_for)]
 
 // TODO: Implement the drop trait to release DMA & PIO?
 // TODO: organize these
@@ -109,24 +107,20 @@ const fn delays<const B: usize>() -> [u32; B] {
 ///       |XX000000|...|XX000000|XX000000|XX000000|XX000000|XX000000|...|XX000000|
 ///       |--------|...|--------|--------|--------|--------|--------|...|--------|
 /// ```
-pub struct DisplayMemory<const W: usize, const H: usize, const B: usize>
-where
-    [(); fb_bytes(W, H, B)]: Sized,
+pub struct DisplayMemory<const W: usize, const H: usize, const B: usize, const SZ: usize>
 {
     fbptr: [u32; 1],
-    fb0: [u8; fb_bytes(W, H, B)],
-    fb1: [u8; fb_bytes(W, H, B)],
+    fb0: [u8; SZ],
+    fb1: [u8; SZ],
     delays: [u32; B],
     delaysptr: [u32; 1],
 }
 
-impl<const W: usize, const H: usize, const B: usize> DisplayMemory<W, H, B>
-where
-    [(); fb_bytes(W, H, B)]: Sized,
+impl<const W: usize, const H: usize, const B: usize, const SZ: usize> DisplayMemory<W, H, B, SZ>
 {
     pub const fn new() -> Self {
-        let fb0 = [0; fb_bytes(W, H, B)];
-        let fb1 = [0; fb_bytes(W, H, B)];
+        let fb0 = [0; SZ];
+        let fb1 = [0; SZ];
         let fbptr: [u32; 1] = [0];
         let delays = delays();
         let delaysptr: [u32; 1] = [0];
@@ -158,22 +152,20 @@ pub struct DisplayPins<F: Function> {
 }
 
 /// The HUB75 display driver
-pub struct Display<'a, CH1, const W: usize, const H: usize, const B: usize, C>
+pub struct Display<'a, CH1, const W: usize, const H: usize, const B: usize, const SZ: usize, C>
 where
-    [(); fb_bytes(W, H, B)]: Sized,
     CH1: ChannelIndex,
     C: RgbColor,
 {
-    mem: &'static mut DisplayMemory<W, H, B>,
+    mem: &'static mut DisplayMemory<W, H, B, SZ>,
     fb_loop_ch: Channel<CH1>,
     benchmark: bool,
     brightness: u8,
     lut: &'a dyn lut::Lut<B, C>,
 }
 
-impl<'a, CH1, const W: usize, const H: usize, const B: usize, C> Display<'a, CH1, W, H, B, C>
+impl<'a, CH1, const W: usize, const H: usize, const B: usize, const SZ: usize, C> Display<'a, CH1, W, H, B, SZ, C>
 where
-    [(); fb_bytes(W, H, B)]: Sized,
     CH1: ChannelIndex,
     C: RgbColor,
 {
@@ -195,7 +187,7 @@ where
     /// * `pio_sms`: PIO state machines to be used to drive the display
     /// * `dma_chs`: DMA channels to be used to drive the PIO state machines
     pub fn new<PE, SM0, SM1, SM2, CH0, CH2, CH3>(
-        buffer: &'static mut DisplayMemory<W, H, B>,
+        buffer: &'static mut DisplayMemory<W, H, B, SZ>,
         pins: DisplayPins<PE::PinFunction>,
         pio_block: &mut PIO<PE>,
         pio_sms: (
@@ -557,10 +549,9 @@ where
     }
 }
 
-impl<'a, CH1, const W: usize, const H: usize, const B: usize, C> OriginDimensions
-    for Display<'a, CH1, W, H, B, C>
+impl<'a, CH1, const W: usize, const H: usize, const B: usize, const SZ: usize, C> OriginDimensions
+    for Display<'a, CH1, W, H, B, SZ, C>
 where
-    [(); fb_bytes(W, H, B)]: Sized,
     CH1: ChannelIndex,
     C: RgbColor,
 {
@@ -569,10 +560,9 @@ where
     }
 }
 
-impl<'a, CH1, const W: usize, const H: usize, const B: usize, C> DrawTarget
-    for Display<'a, CH1, W, H, B, C>
+impl<'a, CH1, const W: usize, const H: usize, const B: usize, const SZ: usize, C> DrawTarget
+    for Display<'a, CH1, W, H, B, SZ, C>
 where
-    [(); fb_bytes(W, H, B)]: Sized,
     CH1: ChannelIndex,
     C: RgbColor,
 {

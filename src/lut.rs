@@ -12,32 +12,29 @@ pub struct Init;
 impl LutState for Uninit {}
 impl LutState for Init {}
 
-pub struct GammaLut<const B: usize, C: RgbColor, S>
-where
-    [(); 1 << B]: Sized,
+/// `POWB` must be `1 << B`
+pub struct GammaLut<const POWB: usize, C: RgbColor, S>
 {
-    r: [u16; 1 << B],
-    g: [u16; 1 << B],
-    b: [u16; 1 << B],
+    r: [u16; POWB],
+    g: [u16; POWB],
+    b: [u16; POWB],
     _color: PhantomData<C>,
     _state: PhantomData<S>,
 }
 
-impl<const B: usize, C: RgbColor> GammaLut<B, C, Uninit>
-where
-    [(); 1 << B]: Sized,
+impl<const POWB: usize, C: RgbColor> GammaLut<POWB, C, Uninit>
 {
     pub const fn new() -> Self {
         Self {
-            r: [0; 1 << B],
-            g: [0; 1 << B],
-            b: [0; 1 << B],
+            r: [0; POWB],
+            g: [0; POWB],
+            b: [0; POWB],
             _color: PhantomData,
             _state: PhantomData,
         }
     }
 
-    pub fn init(mut self, gamma: (f32, f32, f32)) -> GammaLut<B, C, Init> {
+    pub fn init(mut self, gamma: (f32, f32, f32)) -> GammaLut<POWB, C, Init> {
         fn calculate_lookup_value(
             index: usize,
             source_max: u16,
@@ -52,9 +49,9 @@ where
 
         let mut i = 0;
         while i < self.r.len() {
-            self.r[i] = calculate_lookup_value(i, C::MAX_R as u16, (1 << B) - 1, gamma.0);
-            self.g[i] = calculate_lookup_value(i, C::MAX_G as u16, (1 << B) - 1, gamma.1);
-            self.b[i] = calculate_lookup_value(i, C::MAX_B as u16, (1 << B) - 1, gamma.2);
+            self.r[i] = calculate_lookup_value(i, C::MAX_R as u16, POWB as u16 - 1, gamma.0);
+            self.g[i] = calculate_lookup_value(i, C::MAX_G as u16, POWB as u16 - 1, gamma.1);
+            self.b[i] = calculate_lookup_value(i, C::MAX_B as u16, POWB as u16 - 1, gamma.2);
             i += 1;
         }
 
@@ -68,9 +65,7 @@ where
     }
 }
 
-impl<const B: usize, C: RgbColor> Lut<B, C> for GammaLut<B, C, Init>
-where
-    [(); 1 << B]: Sized,
+impl<const POWB: usize, C: RgbColor> Lut<POWB, C> for GammaLut<POWB, C, Init>
 {
     fn lookup(&self, color: C) -> (u16, u16, u16) {
         let r = self.r[color.r() as usize];
@@ -82,9 +77,7 @@ where
 
 pub struct Identity;
 
-impl<const B: usize, C: RgbColor> Lut<B, C> for Identity
-where
-    [(); 1 << B]: Sized,
+impl<const POWB: usize, C: RgbColor> Lut<POWB, C> for Identity
 {
     fn lookup(&self, color: C) -> (u16, u16, u16) {
         (color.r() as u16, color.g() as u16, color.b() as u16)
