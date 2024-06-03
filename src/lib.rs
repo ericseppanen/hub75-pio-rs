@@ -540,10 +540,12 @@ where
         // Half of the screen
         let h = y > (H / 2) - 1;
         let shift = if h { 3 } else { 0 };
-        let (c_r, c_g, c_b) = self.lut.lookup(color);
-        let c_r: u16 = ((c_r as f32) * (self.brightness as f32 / 255f32)) as u16;
-        let c_g: u16 = ((c_g as f32) * (self.brightness as f32 / 255f32)) as u16;
-        let c_b: u16 = ((c_b as f32) * (self.brightness as f32 / 255f32)) as u16;
+        let (mut c_r, mut c_g, mut c_b) = self.lut.lookup(color);
+        if self.brightness != 255 {
+            c_r = ((c_r as f32) * (self.brightness as f32 / 255f32)) as u16;
+            c_g = ((c_g as f32) * (self.brightness as f32 / 255f32)) as u16;
+            c_b = ((c_b as f32) * (self.brightness as f32 / 255f32)) as u16;
+        }
         let base_idx = x + ((y % (H / 2)) * W * B);
         for b in 0..B {
             // Extract the n-th bit of each component of the color and pack them
