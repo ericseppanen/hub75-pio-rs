@@ -28,12 +28,15 @@
 // TODO: Implement the drop trait to release DMA & PIO?
 // TODO: organize these
 use core::convert::TryInto;
+use core::marker::PhantomData;
 use embedded_graphics::prelude::*;
 use rp2040_hal::dma::{Channel, ChannelIndex, SingleChannel};
 use rp2040_hal::gpio::{DynPinId, Function, Pin, PullNone};
 use rp2040_hal::pio::{
     Buffers, PIOBuilder, PIOExt, PinDir, ShiftDirection, StateMachineIndex, UninitStateMachine, PIO,
 };
+
+use crate::lut::Lut;
 
 pub mod lut;
 
@@ -162,11 +165,12 @@ pub trait DisplayExt {
     fn commit(&mut self);
 }
 
-impl<'a, CH1, const W: usize, const H: usize, const B: usize, const SZ: usize, C> DisplayExt
-    for Display<'a, CH1, W, H, B, SZ, C>
+impl<CH1, const W: usize, const H: usize, const B: usize, const SZ: usize, C, LUT> DisplayExt
+    for Display<CH1, W, H, B, SZ, C, LUT>
 where
     CH1: ChannelIndex,
     C: RgbColor,
+    LUT: Lut<B, C>,
 {
     /// Flip the display buffers.
     fn commit(&mut self) {
@@ -192,23 +196,26 @@ pub struct DisplayPins<F: Function> {
 }
 
 /// The HUB75 display driver
-pub struct Display<'a, CH1, const W: usize, const H: usize, const B: usize, const SZ: usize, C>
+pub struct Display<CH1, const W: usize, const H: usize, const B: usize, const SZ: usize, C, LUT>
 where
     CH1: ChannelIndex,
     C: RgbColor,
+    LUT: Lut<B, C>,
 {
     mem: &'static mut DisplayMemory<W, H, B, SZ>,
     fb_loop_ch: Channel<CH1>,
     benchmark: bool,
     brightness: u8,
-    lut: &'a dyn lut::Lut<B, C>,
+    lut: LUT,
+    _phantom: PhantomData<C>,
 }
 
-impl<'a, CH1, const W: usize, const H: usize, const B: usize, const SZ: usize, C>
-    Display<'a, CH1, W, H, B, SZ, C>
+impl<'a, CH1, const W: usize, const H: usize, const B: usize, const SZ: usize, C, LUT>
+    Display<CH1, W, H, B, SZ, C, LUT>
 where
     CH1: ChannelIndex,
     C: RgbColor,
+    LUT: Lut<B, C>,
 {
     /// Creates a new display
     ///
@@ -238,7 +245,7 @@ where
         ),
         dma_chs: (Channel<CH0>, Channel<CH1>, Channel<CH2>, Channel<CH3>),
         benchmark: bool,
-        lut: &'a impl lut::Lut<B, C>,
+        lut: LUT,
     ) -> Self
     where
         PE: PIOExt,
@@ -527,6 +534,7 @@ where
             benchmark,
             brightness: 255,
             lut,
+            _phantom: PhantomData,
         }
     }
 
@@ -588,22 +596,24 @@ where
     }
 }
 
-impl<'a, CH1, const W: usize, const H: usize, const B: usize, const SZ: usize, C> OriginDimensions
-    for Display<'a, CH1, W, H, B, SZ, C>
+impl<CH1, const W: usize, const H: usize, const B: usize, const SZ: usize, C, LUT> OriginDimensions
+    for Display<CH1, W, H, B, SZ, C, LUT>
 where
     CH1: ChannelIndex,
     C: RgbColor,
+    LUT: Lut<B, C>,
 {
     fn size(&self) -> Size {
         Size::new(W.try_into().unwrap(), H.try_into().unwrap())
     }
 }
 
-impl<'a, CH1, const W: usize, const H: usize, const B: usize, const SZ: usize, C> DrawTarget
-    for Display<'a, CH1, W, H, B, SZ, C>
+impl<CH1, const W: usize, const H: usize, const B: usize, const SZ: usize, C, LUT> DrawTarget
+    for Display<CH1, W, H, B, SZ, C, LUT>
 where
     CH1: ChannelIndex,
     C: RgbColor,
+    LUT: Lut<B, C>,
 {
     type Color = C;
     type Error = core::convert::Infallible;
