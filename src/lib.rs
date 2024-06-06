@@ -129,6 +129,30 @@ impl<const W: usize, const H: usize, const B: usize, const SZ: usize> DisplayMem
             delaysptr,
         }
     }
+
+    fn fb_ptr_data(&self) -> u32 {
+        self.fbptr[0]
+    }
+
+    fn current_fb(&mut self) -> &mut [u8; SZ] {
+        if self.fb_ptr_data() == self.fb0.as_ptr() as u32 {
+            &mut self.fb1
+        } else {
+            &mut self.fb0
+        }
+    }
+
+    fn flip_fb(&mut self) {
+        if self.fbptr[0] == (self.fb0.as_ptr() as u32) {
+            self.fbptr[0] = self.fb1.as_ptr() as u32;
+        } else {
+            self.fbptr[0] = self.fb0.as_ptr() as u32;
+        }
+    }
+
+    fn zero_fb(&mut self) {
+        self.current_fb().fill(0);
+    }
 }
 
 /// A trait implemented by all Display instances.
@@ -519,15 +543,12 @@ where
     ///
     /// Has to be called once you have drawn something onto the currently inactive buffer.
     pub fn commit(&mut self) {
-        if self.mem.fbptr[0] == (self.mem.fb0.as_ptr() as u32) {
-            self.mem.fbptr[0] = self.mem.fb1.as_ptr() as u32;
-            while !self.benchmark && !self.fb_loop_busy() {}
-            self.mem.fb0[0..].fill(0);
-        } else {
-            self.mem.fbptr[0] = self.mem.fb0.as_ptr() as u32;
-            while !self.benchmark && !self.fb_loop_busy() {}
-            self.mem.fb1[0..].fill(0);
-        }
+        self.mem.flip_fb();
+        // Wait for the hardware to finish, so we don't erase the buffer
+        // while it's still being sent to the screen.
+        while !self.benchmark && !self.fb_loop_busy() {}
+
+        self.mem.zero_fb();
     }
 
     /// Paints the given pixel coordinates with the given color
@@ -547,6 +568,8 @@ where
             c_b = ((c_b as f32) * (self.brightness as f32 / 255f32)) as u16;
         }
         let base_idx = x + ((y % (H / 2)) * W * B);
+
+        let fb = self.mem.current_fb();
         for b in 0..B {
             // Extract the n-th bit of each component of the color and pack them
             let cr = c_r >> b & 0b1;
@@ -554,13 +577,9 @@ where
             let cb = c_b >> b & 0b1;
             let packed_rgb = (cb << 2 | cg << 1 | cr) as u8;
             let idx = base_idx + b * W;
-            if self.mem.fbptr[0] == (self.mem.fb0.as_ptr() as u32) {
-                self.mem.fb1[idx] &= !(0b111 << shift);
-                self.mem.fb1[idx] |= packed_rgb << shift;
-            } else {
-                self.mem.fb0[idx] &= !(0b111 << shift);
-                self.mem.fb0[idx] |= packed_rgb << shift;
-            }
+
+            fb[idx] &= !(0b111 << shift);
+            fb[idx] |= packed_rgb << shift;
         }
     }
 
